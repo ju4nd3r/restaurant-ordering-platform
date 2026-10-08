@@ -1,0 +1,583 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==============================================================================
+// RESTAURANT (MULTI-TENANT) & CONFIGURATION
+// ==============================================================================
+
+enum TaxType {
+  INC_8
+  IVA_19
+  EXEMPT
+}
+
+enum TipDistributionRule {
+  ASSIGNED_WAITER
+  POOL_SHIFT
+  CUSTOM_PERCENTAGE
+}
+
+model Restaurant {
+  id                     String               @id @default(uuid())
+  name                   String
+  slug                   String               @unique
+  nit                    String               @unique
+  legalName              String
+  address                String
+  phone                  String
+  taxType                TaxType              @default(INC_8)
+  taxPercentage          Int                  @default(8) // e.g. 8 for INC
+  defaultTipPercentage   Int                  @default(10) // e.g. 10 for 10%
+  tipDistributionRule    TipDistributionRule  @default(ASSIGNED_WAITER)
+  currency               String               @default("COP")
+  dianResolutionNumber   String?
+  dianPrefix             String?
+  dianTechnicalKey       String?
+  isActive               Boolean              @default(true)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  tables                 RestaurantTable[]
+  categories             Category[]
+  menuItems              MenuItem[]
+  users                  User[]
+  orders                 Order[]
+  shifts                 Shift[]
+  invoices               ElectronicInvoice[]
+
+  @@map("restaurants")
+}
+
+// ==============================================================================
+// USERS, STAFF & ROLES (RBAC)
+// ==============================================================================
+
+enum Role {
+  ADMIN
+  CASHIER
+  KITCHEN
+  WAITER
+}
+
+model User {
+  id              String         @id @default(uuid())
+  restaurantId    String
+  email           String         @unique
+  passwordHash    String
+  fullName        String
+  phone           String?
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  restaurant      Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  roles           UserRole[]
+  assignedTables  RestaurantTable[] @relation("AssignedWaiter")
+  shiftMemberships ShiftStaff[]
+  assignedOrders  Order[]        @relation("OrderWaiter")
+  tipAllocations  TipAllocation[]
+
+  @@map("users")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  role      Role
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+model Shift {
+  id            String       @id @default(uuid())
+  restaurantId  String
+  startTime     DateTime     @default(now())
+  endTime       DateTime?
+  isOpen        Boolean      @default(true)
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  restaurant    Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  staff         ShiftStaff[]
+
+  @@map("shifts")
+}
+
+model ShiftStaff {
+  id        String    @id @default(uuid())
+  shiftId   String
+  userId    String
+  checkIn   DateTime  @default(now())
+  checkOut  DateTime?
+
+  shift     Shift     @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([shiftId, userId])
+  @@map("shift_staff")
+}
+
+// ==============================================================================
+// TABLES & CLIENT ANONYMOUS SESSIONS
+// ==============================================================================
+
+model RestaurantTable {
+  id                String         @id @default(uuid())
+  restaurantId      String
+  number            Int
+  label             String
+  zone              String?
+  qrToken           String         @unique // Opaque high-entropy token (NanoID)
+  assignedWaiterId  String?
+  isActive          Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  restaurant        Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  assignedWaiter    User?          @relation("AssignedWaiter", fields: [assignedWaiterId], references: [id], onDelete: SetNull)
+  sessions          TableSession[]
+  orders            Order[]
+
+  @@unique([restaurantId, number])
+  @@map("restaurant_tables")
+}
+
+enum TableSessionStatus {
+  ACTIVE
+  CLOSED
+}
+
+model TableSession {
+  id            String             @id @default(uuid())
+  tableId       String
+  sessionToken  String             @unique // Opaque session identifier
+  status        TableSessionStatus @default(ACTIVE)
+  openedAt      DateTime           @default(now())
+  closedAt      DateTime?
+
+  table         RestaurantTable    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  orders        Order[]
+  billSplits    BillSplit[]
+
+  @@map("table_sessions")
+}
+
+// ==============================================================================
+// MENU: CATEGORIES, ITEMS, OPTIONS, MODIFIERS, IMAGES
+// ==============================================================================
+
+model Category {
+  id            String      @id @default(uuid())
+  restaurantId  String
+  name          String
+  slug          String
+  sortOrder     Int         @default(0)
+  isActive      Boolean     @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  restaurant    Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  items         MenuItem[]
+
+  @@unique([restaurantId, slug])
+  @@map("categories")
+}
+
+enum Allergen {
+  GLUTEN
+  DAIRY
+  EGGS
+  PEANUTS
+  TREE_NUTS
+  FISH
+  SHELLFISH
+  SOY
+  SESAME
+}
+
+enum DietaryFlag {
+  VEGETARIAN
+  VEGAN
+  GLUTEN_FREE
+  KETO
+  HALAL
+}
+
+model MenuItem {
+  id               String                 @id @default(uuid())
+  restaurantId     String
+  categoryId       String
+  name             String
+  description      String
+  basePriceCop     Int                    // COP integer
+  prepTimeMinutes  Int                    @default(15)
+  isAvailable      Boolean                @default(true)
+  ingredients      String[]               @default([])
+  allergens        Allergen[]             @default([])
+  dietaryFlags     DietaryFlag[]          @default([])
+  sortOrder        Int                    @default(0)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  restaurant       Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category         Category               @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  images           MenuItemImage[]
+  optionGroups     MenuItemOptionGroup[]
+  modifiers        MenuItemModifier[]
+  orderItems       OrderItem[]
+
+  @@map("menu_items")
+}
+
+model MenuItemImage {
+  id               String     @id @default(uuid())
+  menuItemId       String
+  url              String
+  thumbnailUrl     String
+  blurPlaceholder  String?
+  sortOrder        Int        @default(0)
+
+  menuItem         MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@map("menu_item_images")
+}
+
+model MenuItemOptionGroup {
+  id               String            @id @default(uuid())
+  menuItemId       String
+  name             String            // e.g. "Término de la carne"
+  minSelectable    Int               @default(1)
+  maxSelectable    Int               @default(1)
+
+  menuItem         MenuItem          @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  options          MenuItemOption[]
+
+  @@map("menu_item_option_groups")
+}
+
+model MenuItemOption {
+  id                  String               @id @default(uuid())
+  optionGroupId       String
+  name                String               // e.g. "Tres cuartos (3/4)"
+  additionalPriceCop  Int                  @default(0) // COP integer
+  isDefault           Boolean              @default(false)
+
+  group               MenuItemOptionGroup  @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+
+  @@map("menu_item_options")
+}
+
+model MenuItemModifier {
+  id            String      @id @default(uuid())
+  menuItemId    String
+  name          String      // e.g. "Queso extra", "Tocineta"
+  priceCop      Int         // COP integer
+  isAvailable   Boolean     @default(true)
+
+  menuItem      MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@map("menu_item_modifiers")
+}
+
+// ==============================================================================
+// ORDERS & KITCHEN DISPLAY SYSTEM (KDS)
+// ==============================================================================
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  RECEIVED
+  IN_PREPARATION
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+enum OrderPaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+}
+
+model Order {
+  id              String              @id @default(uuid())
+  restaurantId    String
+  tableId         String
+  tableSessionId  String
+  orderNumber     Int                 // Daily sequential number
+  status          OrderStatus         @default(PENDING_PAYMENT)
+  paymentStatus   OrderPaymentStatus  @default(UNPAID)
+  waiterId        String?
+  customerNotes   String?
+  subtotalCop     Int                 // COP integer
+  taxCop          Int                 // COP integer (INC 8% or IVA)
+  tipCop          Int                 // Voluntary tip COP integer
+  totalCop        Int                 // subtotal + tax + tip
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  restaurant      Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table           RestaurantTable     @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  tableSession    TableSession        @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
+  waiter          User?               @relation("OrderWaiter", fields: [waiterId], references: [id], onDelete: SetNull)
+  items           OrderItem[]
+  statusHistory   OrderStatusHistory[]
+  transactions    PaymentTransaction[]
+
+  @@map("orders")
+}
+
+model OrderStatusHistory {
+  id          String       @id @default(uuid())
+  orderId     String
+  status      OrderStatus
+  changedAt   DateTime     @default(now())
+  changedById String?
+
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_status_history")
+}
+
+model OrderItem {
+  id               String       @id @default(uuid())
+  orderId          String
+  menuItemId       String
+  quantity         Int          @default(1)
+  unitPriceCop     Int          // COP integer
+  totalPriceCop    Int          // COP integer
+  comment          String?
+  isPaid           Boolean      @default(false)
+
+  order            Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem         MenuItem     @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  modifiers        OrderItemModifierSelection[]
+  options          OrderItemOptionSelection[]
+  allocations      BillSplitItemAllocation[]
+
+  @@map("order_items")
+}
+
+model OrderItemModifierSelection {
+  id             String     @id @default(uuid())
+  orderItemId    String
+  modifierId     String
+  name           String
+  priceCop       Int        // COP integer
+
+  orderItem      OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@map("order_item_modifier_selections")
+}
+
+model OrderItemOptionSelection {
+  id                 String     @id @default(uuid())
+  orderItemId        String
+  optionGroupId      String
+  optionGroupName    String
+  optionId           String
+  optionName         String
+  additionalPriceCop Int        // COP integer
+
+  orderItem          OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@map("order_item_option_selections")
+}
+
+// ==============================================================================
+// BILL SPLITTING, PAYMENTS & WOMPI
+// ==============================================================================
+
+enum SplitMode {
+  BY_ITEMS
+  EQUAL_PARTS
+  CUSTOM_AMOUNT
+}
+
+enum SplitStatus {
+  OPEN
+  COMPLETED
+}
+
+model BillSplit {
+  id               String                    @id @default(uuid())
+  tableSessionId   String
+  mode             SplitMode
+  totalAmountCop   Int                       // COP integer
+  tipAmountCop     Int                       // COP integer
+  taxAmountCop     Int                       // COP integer
+  status           SplitStatus               @default(OPEN)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  tableSession     TableSession              @relation(fields: [tableSessionId], references: [id], onDelete: Cascade)
+  allocations      BillSplitItemAllocation[]
+  transactions     PaymentTransaction[]
+
+  @@map("bill_splits")
+}
+
+model BillSplitItemAllocation {
+  id             String     @id @default(uuid())
+  billSplitId    String
+  orderItemId    String
+  participantId  String     // Anonymous guest / device id
+  fraction       Float      @default(1.0) // 1.0 for entire item, 0.5 for shared
+
+  billSplit      BillSplit  @relation(fields: [billSplitId], references: [id], onDelete: Cascade)
+  orderItem      OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@map("bill_split_item_allocations")
+}
+
+enum PaymentProviderType {
+  WOMPI
+  CASH
+}
+
+enum PaymentMethod {
+  CARD
+  PSE
+  NEQUI
+  BANCOLOMBIA
+  CASH
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  APPROVED
+  DECLINED
+  ERROR
+  VOIDED
+}
+
+model PaymentTransaction {
+  id                     String                    @id @default(uuid())
+  orderId                String?
+  billSplitId            String?
+  provider               PaymentProviderType       @default(WOMPI)
+  providerTransactionId  String?                   @unique
+  method                 PaymentMethod
+  amountCop              Int                       // Total charged in COP
+  subtotalCop            Int                       // Net item portion
+  taxCop                 Int                       // Tax portion
+  tipCop                 Int                       // Tip portion
+  status                 PaymentTransactionStatus  @default(PENDING)
+  idempotencyKey         String                    @unique
+  rawResponse            Json?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+
+  order                  Order?                    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  billSplit              BillSplit?                @relation(fields: [billSplitId], references: [id], onDelete: SetNull)
+  invoice                ElectronicInvoice?
+  tipAllocation          TipAllocation?
+
+  @@map("payment_transactions")
+}
+
+// ==============================================================================
+// TIPS DISTRIBUTION
+// ==============================================================================
+
+model TipAllocation {
+  id                    String              @id @default(uuid())
+  paymentTransactionId  String              @unique
+  userId                String?             // Waiter receiving tip or null if shift pool
+  amountCop             Int                 // COP integer
+  ruleApplied           TipDistributionRule
+  createdAt             DateTime            @default(now())
+
+  transaction           PaymentTransaction  @relation(fields: [paymentTransactionId], references: [id], onDelete: Cascade)
+  user                  User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("tip_allocations")
+}
+
+// ==============================================================================
+// DIAN ELECTRONIC INVOICING & HABEAS DATA
+// ==============================================================================
+
+enum CustomerDocType {
+  CC
+  NIT
+  CE
+  PASSPORT
+  FINAL_CONSUMER
+}
+
+enum InvoiceStatus {
+  PENDING
+  ISSUED
+  REJECTED
+  ERROR
+}
+
+model ElectronicInvoice {
+  id                    String              @id @default(uuid())
+  restaurantId          String
+  paymentTransactionId  String              @unique
+  invoiceNumber         String              @unique // Prefixed number e.g. FE-000123
+  cufe                  String?             @unique
+  qrCodeUrl             String?
+  pdfUrl                String?
+  xmlUrl                String?
+  customerDocType       CustomerDocType     @default(FINAL_CONSUMER)
+  customerDocNumber     String              @default("222222222222")
+  customerLegalName     String              @default("Consumidor Final")
+  customerEmail         String?
+  customerPhone         String?
+  customerAddress       String?
+  subtotalCop           Int
+  taxCop                Int
+  tipCop                Int
+  totalCop              Int
+  status                InvoiceStatus       @default(PENDING)
+  dianResponse          Json?
+  issuedAt              DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  restaurant            Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  transaction           PaymentTransaction  @relation(fields: [paymentTransactionId], references: [id], onDelete: Cascade)
+  logs                  ElectronicInvoiceLog[]
+  creditNotes           InvoiceCreditNote[]
+
+  @@map("electronic_invoices")
+}
+
+model ElectronicInvoiceLog {
+  id          String             @id @default(uuid())
+  invoiceId   String
+  attempt     Int                @default(1)
+  status      InvoiceStatus
+  message     String
+  payload     Json?
+  createdAt   DateTime           @default(now())
+
+  invoice     ElectronicInvoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("electronic_invoice_logs")
+}
+
+model InvoiceCreditNote {
+  id             String             @id @default(uuid())
+  invoiceId      String
+  creditNumber   String             @unique
+  cude           String?            @unique
+  reason         String
+  totalCop       Int
+  createdAt      DateTime           @default(now())
+
+  invoice        ElectronicInvoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_credit_notes")
+}

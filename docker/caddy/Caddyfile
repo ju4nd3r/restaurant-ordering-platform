@@ -1,0 +1,28 @@
+{
+  email {$ACME_EMAIL:admin@example.com}
+}
+
+{$DOMAIN_NAME:localhost} {
+  # API and Swagger Docs
+  handle /api* {
+    reverse_proxy api:4000
+  }
+
+  # WebSockets
+  handle /socket.io* {
+    reverse_proxy api:4000
+  }
+
+  # Web PWA frontend
+  handle {
+    reverse_proxy web:3001
+  }
+
+  # Security headers
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "SAMEORIGIN"
+    Referrer-Policy "strict-origin-when-cross-origin"
+  }
+}

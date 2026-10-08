@@ -1,0 +1,15 @@
+node_modules
+.pnpm-store
+.git
+.gitignore
+.turbo
+dist
+.next
+coverage
+*.log
+.DS_Store
+.env
+.env.local
+postgres_data
+redis_data
+minio_data
