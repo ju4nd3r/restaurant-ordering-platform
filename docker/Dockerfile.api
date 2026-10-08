@@ -41,4 +41,4 @@ COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 
 USER nestjs
 EXPOSE 4000
-CMD ["node", "apps/api/dist/main.js"]
+CMD ["sh", "-c", "if [ -f apps/api/dist/main.js ]; then node apps/api/dist/main.js; else node apps/api/dist/src/main.js; fi"]
