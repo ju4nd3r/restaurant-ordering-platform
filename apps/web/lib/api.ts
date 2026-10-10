@@ -160,3 +160,126 @@ export function getFullImageUrl(path?: string): string {
   if (path.startsWith('http://') || path.startsWith('https://')) return path;
   return `${API_URL}${path.startsWith('/') ? path : `/${path}`}`;
 }
+
+export interface CreateOrderPayload {
+  tableSessionToken?: string;
+  items: {
+    menuItemId: string;
+    quantity: number;
+    comment?: string;
+    selectedOptions?: {
+      optionGroupId: string;
+      optionGroupName: string;
+      optionId: string;
+      optionName: string;
+      additionalPriceCop?: number;
+    }[];
+    selectedModifiers?: {
+      modifierId: string;
+      name: string;
+      priceCop?: number;
+    }[];
+  }[];
+  customerNotes?: string;
+  tipPercentage?: number;
+}
+
+export interface OrderItemOption {
+  id: string;
+  optionGroupId: string;
+  optionGroupName: string;
+  optionId: string;
+  optionName: string;
+  additionalPriceCop: number;
+}
+
+export interface OrderItemModifier {
+  id: string;
+  modifierId: string;
+  name: string;
+  priceCop: number;
+}
+
+export interface OrderItemDTO {
+  id: string;
+  menuItemId: string;
+  quantity: number;
+  unitPriceCop: number;
+  totalPriceCop: number;
+  comment?: string | null;
+  isPaid: boolean;
+  menuItem: {
+    name: string;
+    prepTimeMinutes: number;
+    images?: MenuItemImage[];
+  };
+  options: OrderItemOption[];
+  modifiers: OrderItemModifier[];
+}
+
+export interface OrderDTO {
+  id: string;
+  restaurantId: string;
+  tableId: string;
+  tableSessionId: string;
+  orderNumber: number;
+  status: 'PENDING_PAYMENT' | 'RECEIVED' | 'IN_PREPARATION' | 'READY' | 'DELIVERED' | 'CANCELLED';
+  paymentStatus: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID';
+  waiterId?: string | null;
+  customerNotes?: string | null;
+  subtotalCop: number;
+  taxCop: number;
+  tipCop: number;
+  totalCop: number;
+  createdAt: string;
+  updatedAt: string;
+  table: {
+    number: number;
+    label: string;
+    zone?: string | null;
+  };
+  waiter?: {
+    id: string;
+    fullName: string;
+  } | null;
+  items: OrderItemDTO[];
+  statusHistory?: {
+    id: string;
+    status: string;
+    changedAt: string;
+  }[];
+}
+
+export async function createOrder(payload: CreateOrderPayload): Promise<OrderDTO> {
+  const res = await fetch(`${API_URL}/api/orders`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error al crear el pedido');
+  }
+
+  return res.json();
+}
+
+export async function fetchSessionOrders(tableSessionId: string): Promise<OrderDTO[]> {
+  const res = await fetch(`${API_URL}/api/orders/session/${encodeURIComponent(tableSessionId)}`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error('Error al cargar los pedidos de la mesa');
+  }
+
+  return res.json();
+}

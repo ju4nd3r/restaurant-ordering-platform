@@ -19,6 +19,9 @@ import { BottomNav, ActiveTab } from '../../../components/navigation/bottom-nav'
 import { Utensils, AlertCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
+import { CartSheet } from '../../../components/cart/cart-sheet';
+import { OrderTracker } from '../../../components/orders/order-tracker';
+
 interface PageProps {
   params: Promise<{ token: string }>;
 }
@@ -30,11 +33,14 @@ export default function TableMenuPage({ params }: PageProps) {
   // Selected dish for detail bottom sheet
   const [selectedDish, setSelectedDish] = useState<MenuItem | null>(null);
 
+  // Cart bottom sheet open state
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDietaryFlag, setSelectedDietaryFlag] = useState<string | null>(null);
 
-  // Active navigation tab
+  // Active navigation tab ('menu' | 'orders' | 'cart')
   const [activeTab, setActiveTab] = useState<ActiveTab>('menu');
 
   // Active category id for scroll spy / tabs
@@ -214,74 +220,87 @@ export default function TableMenuPage({ params }: PageProps) {
         }}
       />
 
-      {/* 2. Sticky Category Tabs */}
-      {categoriesData && categoriesData.length > 0 && (
-        <CategoryTabs
-          categories={categoriesData}
-          activeCategoryId={activeCategoryId}
-          onSelectCategory={handleSelectCategory}
+      {/* Main View Router based on activeTab */}
+      {activeTab === 'orders' ? (
+        <OrderTracker
+          tableSessionId={tableData.session.id}
+          tableNumber={tableData.table.number}
+          restaurantName={tableData.restaurant.name}
+          onOrderMore={() => setActiveTab('menu')}
+          onGoToBill={() => setIsCartOpen(true)}
         />
-      )}
+      ) : (
+        <>
+          {/* 2. Sticky Category Tabs */}
+          {categoriesData && categoriesData.length > 0 && (
+            <CategoryTabs
+              categories={categoriesData}
+              activeCategoryId={activeCategoryId}
+              onSelectCategory={handleSelectCategory}
+            />
+          )}
 
-      {/* 3. Search & Dietary Filter Bar */}
-      <SearchFilterBar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        selectedDietaryFlag={selectedDietaryFlag}
-        onSelectDietaryFlag={setSelectedDietaryFlag}
-      />
+          {/* 3. Search & Dietary Filter Bar */}
+          <SearchFilterBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            selectedDietaryFlag={selectedDietaryFlag}
+            onSelectDietaryFlag={setSelectedDietaryFlag}
+          />
 
-      {/* 4. Menu Dishes Content */}
-      <main className="px-4 pt-4 space-y-6">
-        {filteredCategories.length === 0 ? (
-          <div className="text-center py-12 px-4 bg-white rounded-2xl border border-stone-200/80 my-4">
-            <span className="text-3xl block mb-2">🔍</span>
-            <h3 className="text-sm font-bold text-stone-800">No se encontraron platos</h3>
-            <p className="text-xs text-stone-500 mt-1">
-              Prueba cambiando los filtros dietéticos o el término de búsqueda.
-            </p>
-            {(searchQuery || selectedDietaryFlag) && (
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedDietaryFlag(null);
-                }}
-                className="mt-3 text-xs font-semibold text-amber-600 hover:text-amber-700 underline touch-target"
-              >
-                Limpiar filtros
-              </button>
+          {/* 4. Menu Dishes Content */}
+          <main className="px-4 pt-4 space-y-6">
+            {filteredCategories.length === 0 ? (
+              <div className="text-center py-12 px-4 bg-white rounded-2xl border border-stone-200/80 my-4">
+                <span className="text-3xl block mb-2">🔍</span>
+                <h3 className="text-sm font-bold text-stone-800">No se encontraron platos</h3>
+                <p className="text-xs text-stone-500 mt-1">
+                  Prueba cambiando los filtros dietéticos o el término de búsqueda.
+                </p>
+                {(searchQuery || selectedDietaryFlag) && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedDietaryFlag(null);
+                    }}
+                    className="mt-3 text-xs font-semibold text-amber-600 hover:text-amber-700 underline touch-target"
+                  >
+                    Limpiar filtros
+                  </button>
+                )}
+              </div>
+            ) : (
+              filteredCategories.map((category, catIndex) => (
+                <section
+                  key={category.id}
+                  id={`cat-${category.id}`}
+                  className="scroll-mt-36"
+                >
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <h2 className="text-base font-black text-stone-900 tracking-tight">
+                      {category.name}
+                    </h2>
+                    <span className="text-[11px] font-semibold text-stone-400">
+                      {category.items.length} opciones
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {category.items.map((item, itemIndex) => (
+                      <DishCard
+                        key={item.id}
+                        item={item}
+                        onSelect={(dish) => setSelectedDish(dish)}
+                        isLcpCandidate={catIndex === 0 && itemIndex === 0}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))
             )}
-          </div>
-        ) : (
-          filteredCategories.map((category, catIndex) => (
-            <section
-              key={category.id}
-              id={`cat-${category.id}`}
-              className="scroll-mt-36"
-            >
-              <div className="flex items-center justify-between mb-3 px-1">
-                <h2 className="text-base font-black text-stone-900 tracking-tight">
-                  {category.name}
-                </h2>
-                <span className="text-[11px] font-semibold text-stone-400">
-                  {category.items.length} opciones
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {category.items.map((item, itemIndex) => (
-                  <DishCard
-                    key={item.id}
-                    item={item}
-                    onSelect={(dish) => setSelectedDish(dish)}
-                    isLcpCandidate={catIndex === 0 && itemIndex === 0}
-                  />
-                ))}
-              </div>
-            </section>
-          ))
-        )}
-      </main>
+          </main>
+        </>
+      )}
 
       {/* 5. Dish Detail Bottom Sheet */}
       <DishDetailSheet
@@ -290,11 +309,27 @@ export default function TableMenuPage({ params }: PageProps) {
         onClose={() => setSelectedDish(null)}
       />
 
-      {/* 6. Fixed Bottom Navigation */}
+      {/* 6. Cart Review Sheet */}
+      <CartSheet
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        onOrderCreated={() => {
+          setIsCartOpen(false);
+          setActiveTab('orders');
+        }}
+      />
+
+      {/* 7. Fixed Bottom Navigation */}
       <BottomNav
         activeTab={activeTab}
-        onTabChange={(tab) => setActiveTab(tab)}
-        onOpenCart={() => setActiveTab('cart')}
+        onTabChange={(tab) => {
+          if (tab === 'cart') {
+            setIsCartOpen(true);
+          } else {
+            setActiveTab(tab);
+          }
+        }}
+        onOpenCart={() => setIsCartOpen(true)}
       />
     </div>
   );
