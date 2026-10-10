@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
+import { Providers } from '../components/providers';
+
 export const metadata: Metadata = {
   title: 'Restaurante Mobile - Pide y Paga desde tu mesa',
   description: 'Aplicación web progresiva móvil para pedir y pagar en restaurantes colombianos',
@@ -36,7 +38,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="flex min-h-full flex-col font-sans antialiased select-none">
-        {children}
+        <Providers>{children}</Providers>
         <script
           dangerouslySetInnerHTML={{
             __html: `

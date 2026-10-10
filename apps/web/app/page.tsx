@@ -23,7 +23,7 @@ export default function HomePage() {
             Usa la cámara de tu celular para ingresar directamente a tu sesión de mesa.
           </p>
           <Link
-            href="/m/demo-mesa-1"
+            href="/m/m_mesa1_criollo_9a8b"
             className="mt-5 w-full bg-stone-900 hover:bg-stone-800 text-white font-medium py-3 px-4 rounded-xl text-sm transition-colors touch-target"
           >
             Ver Menú de Demostración (Mesa 1)
