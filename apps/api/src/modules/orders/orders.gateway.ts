@@ -119,4 +119,49 @@ export class OrdersGateway
       });
     }
   }
+
+  notifyPaymentUpdated(payload: {
+    orderId: string;
+    tableSessionId: string;
+    restaurantId: string;
+    paymentStatus: 'UNPAID' | 'PARTIALLY_PAID' | 'PAID';
+    transaction: any;
+  }) {
+    if (!this.server) return;
+
+    if (payload.tableSessionId) {
+      this.server.to(`table:${payload.tableSessionId}`).emit('order:payment-updated', {
+        orderId: payload.orderId,
+        paymentStatus: payload.paymentStatus,
+        transaction: payload.transaction,
+      });
+    }
+
+    if (payload.restaurantId) {
+      this.server.to(`kitchen:${payload.restaurantId}`).emit('order:payment-updated', {
+        orderId: payload.orderId,
+        paymentStatus: payload.paymentStatus,
+        transaction: payload.transaction,
+      });
+    }
+  }
+
+  notifyItemLocked(tableSessionId: string, payload: { orderItemId: string; participantId: string; expiresAt: string }) {
+    if (!this.server || !tableSessionId) return;
+    this.server.to(`table:${tableSessionId}`).emit('table:item-locked', payload);
+  }
+
+  notifyItemUnlocked(tableSessionId: string, payload: { orderItemId: string }) {
+    if (!this.server || !tableSessionId) return;
+    this.server.to(`table:${tableSessionId}`).emit('table:item-unlocked', payload);
+  }
+
+  notifySplitUpdated(tableSessionId: string, billSplit: any) {
+    if (!this.server || !tableSessionId) return;
+    this.server.to(`table:${tableSessionId}`).emit('table:split-updated', {
+      tableSessionId,
+      billSplit,
+    });
+  }
 }
+

@@ -183,6 +183,51 @@ export const ReorderImagesSchema = z.object({
   imageIds: z.array(z.string().uuid()).min(1, 'Debe incluir al menos un ID de imagen'),
 });
 
+export const PaymentProviderEnum = z.enum(['WOMPI', 'CASH']);
+export const PaymentMethodEnum = z.enum(['CARD', 'PSE', 'NEQUI', 'BANCOLOMBIA', 'CASH']);
+export const SplitModeEnum = z.enum(['BY_ITEMS', 'EQUAL_PARTS', 'CUSTOM_AMOUNT']);
+export const CustomerDocTypeEnum = z.enum(['CC', 'NIT', 'CE', 'PASSPORT', 'FINAL_CONSUMER']);
+
+export const CustomerBillingDataSchema = z.object({
+  isFinalConsumer: z.boolean().default(true),
+  docType: CustomerDocTypeEnum.default('FINAL_CONSUMER'),
+  docNumber: z.string().trim().min(3).max(20).default('222222222222'),
+  fullNameOrLegalName: z.string().trim().min(2).max(150).default('Consumidor Final'),
+  email: z.string().trim().email('Correo electrónico inválido').optional().or(z.literal('')),
+  phone: z.string().trim().max(20).optional(),
+  address: z.string().trim().max(200).optional(),
+  habeasDataAccepted: z.boolean().default(true),
+});
+
+export const CreateOrderPaymentSchema = z.object({
+  orderId: z.string().uuid('ID de orden inválido'),
+  provider: PaymentProviderEnum.default('WOMPI'),
+  method: PaymentMethodEnum.default('CARD'),
+  customerBillingData: CustomerBillingDataSchema.optional(),
+});
+
+export const InitBillSplitSchema = z.object({
+  tableSessionId: z.string().uuid('ID de sesión de mesa inválido'),
+  mode: SplitModeEnum,
+  totalPersons: z.number().int().min(2).max(50).optional(),
+});
+
+export const LockItemSchema = z.object({
+  tableSessionId: z.string().uuid('ID de sesión de mesa inválido'),
+  orderItemId: z.string().uuid('ID de ítem de orden inválido'),
+  participantId: z.string().trim().min(1, 'ID de participante requerido'),
+});
+
+export const PayBillSplitSchema = z.object({
+  billSplitId: z.string().uuid('ID de división de cuenta inválido'),
+  participantId: z.string().trim().min(1, 'ID de participante requerido'),
+  provider: PaymentProviderEnum.default('WOMPI'),
+  method: PaymentMethodEnum.default('CARD'),
+  selectedItemIds: z.array(z.string().uuid()).optional(),
+  customAmountCop: MoneyCopSchema.optional(),
+  customerBillingData: CustomerBillingDataSchema.optional(),
+});
+
 export type CreateCategoryInput = z.infer<typeof CreateCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof UpdateCategorySchema>;
 export type CreateMenuItemInput = z.infer<typeof CreateMenuItemSchema>;
@@ -196,4 +241,10 @@ export type UpdateModifierInput = z.infer<typeof UpdateModifierSchema>;
 export type CreateTableInput = z.infer<typeof CreateTableSchema>;
 export type UpdateTableInput = z.infer<typeof UpdateTableSchema>;
 export type ReorderImagesInput = z.infer<typeof ReorderImagesSchema>;
+export type CustomerBillingDataInput = z.infer<typeof CustomerBillingDataSchema>;
+export type CreateOrderPaymentInput = z.infer<typeof CreateOrderPaymentSchema>;
+export type InitBillSplitInput = z.infer<typeof InitBillSplitSchema>;
+export type LockItemInput = z.infer<typeof LockItemSchema>;
+export type PayBillSplitInput = z.infer<typeof PayBillSplitSchema>;
+
 

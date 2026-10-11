@@ -202,6 +202,39 @@ export interface ElectronicInvoiceDTO {
   issuedAt: string;
 }
 
+export interface BillSplitItemAllocationDTO {
+  id: string;
+  billSplitId: string;
+  orderItemId: string;
+  participantId: string;
+  fraction: number;
+}
+
+export interface BillSplitDTO {
+  id: string;
+  tableSessionId: string;
+  mode: SplitMode;
+  totalAmountCop: number;
+  tipAmountCop: number;
+  taxAmountCop: number;
+  status: 'OPEN' | 'COMPLETED';
+  allocations: BillSplitItemAllocationDTO[];
+  transactions: PaymentTransactionDTO[];
+  createdAt: string;
+}
+
+export interface CreatePaymentResponseDTO {
+  transactionId: string;
+  orderId?: string;
+  billSplitId?: string;
+  status: PaymentStatus;
+  amountCop: number;
+  provider: PaymentProviderType;
+  method: PaymentMethod;
+  reference: string;
+  paymentUrl?: string;
+}
+
 // ==============================================================================
 // REALTIME SOCKET EVENT CONTRACTS
 // ==============================================================================
@@ -224,6 +257,10 @@ export interface ServerToClientEvents {
     expiresAt: string;
   }) => void;
   'table:item-unlocked': (payload: { orderItemId: string }) => void;
+  'table:split-updated': (payload: {
+    tableSessionId: string;
+    billSplit: BillSplitDTO;
+  }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -232,3 +269,4 @@ export interface ClientToServerEvents {
   'join:kitchen': () => void;
   'join:waiter': (waiterId: string) => void;
 }
+

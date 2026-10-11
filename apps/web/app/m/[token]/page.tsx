@@ -17,10 +17,14 @@ import { DishCard } from '../../../components/menu/dish-card';
 import { DishDetailSheet } from '../../../components/menu/dish-detail-sheet';
 import { BottomNav, ActiveTab } from '../../../components/navigation/bottom-nav';
 import { Utensils, AlertCircle, RefreshCw } from 'lucide-react';
-import Link from 'next/link';
-
 import { CartSheet } from '../../../components/cart/cart-sheet';
 import { OrderTracker } from '../../../components/orders/order-tracker';
+import { PaymentSheet } from '../../../components/payments/payment-sheet';
+import { BillSplitSheet } from '../../../components/payments/bill-split-sheet';
+import { PaymentCallbackModal } from '../../../components/payments/payment-callback-modal';
+import { OrderDTO } from '../../../lib/api';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -43,8 +47,34 @@ export default function TableMenuPage({ params }: PageProps) {
   // Active navigation tab ('menu' | 'orders' | 'cart')
   const [activeTab, setActiveTab] = useState<ActiveTab>('menu');
 
-  // Active category id for scroll spy / tabs
   const [activeCategoryId, setActiveCategoryId] = useState<string>('');
+
+  // Payment & Bill Split state
+  const [paymentOrder, setPaymentOrder] = useState<OrderDTO | null>(null);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [splitOrder, setSplitOrder] = useState<OrderDTO | null>(null);
+  const [isSplitOpen, setIsSplitOpen] = useState(false);
+  const [callbackModal, setCallbackModal] = useState<{
+    isOpen: boolean;
+    orderId?: string | null;
+    reference?: string | null;
+  }>({ isOpen: false });
+
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const payment = searchParams.get('payment');
+    if (payment === 'callback') {
+      const orderId = searchParams.get('orderId');
+      const ref = searchParams.get('ref');
+      setCallbackModal({
+        isOpen: true,
+        orderId,
+        reference: ref,
+      });
+      setActiveTab('orders');
+    }
+  }, [searchParams]);
 
   const setTableContext = useCartStore((state) => state.setTableContext);
 
@@ -228,6 +258,14 @@ export default function TableMenuPage({ params }: PageProps) {
           restaurantName={tableData.restaurant.name}
           onOrderMore={() => setActiveTab('menu')}
           onGoToBill={() => setIsCartOpen(true)}
+          onPayOrder={(order) => {
+            setPaymentOrder(order);
+            setIsPaymentOpen(true);
+          }}
+          onSplitOrder={(order) => {
+            setSplitOrder(order);
+            setIsSplitOpen(true);
+          }}
         />
       ) : (
         <>
@@ -331,6 +369,37 @@ export default function TableMenuPage({ params }: PageProps) {
         }}
         onOpenCart={() => setIsCartOpen(true)}
       />
+
+      {/* 8. Payment Sheet */}
+      <PaymentSheet
+        order={paymentOrder}
+        isOpen={isPaymentOpen}
+        onClose={() => setIsPaymentOpen(false)}
+        onOpenSplit={() => {
+          setSplitOrder(paymentOrder);
+          setIsSplitOpen(true);
+        }}
+      />
+
+      {/* 9. Bill Split Sheet */}
+      <BillSplitSheet
+        order={splitOrder}
+        isOpen={isSplitOpen}
+        onClose={() => setIsSplitOpen(false)}
+      />
+
+      {/* 10. Payment Return Callback Modal */}
+      {callbackModal.isOpen && (
+        <PaymentCallbackModal
+          orderId={callbackModal.orderId}
+          reference={callbackModal.reference}
+          onClose={() => setCallbackModal({ isOpen: false })}
+          onPaymentConfirmed={() => {
+            // Refetch orders
+            setActiveTab('orders');
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -22,6 +22,8 @@ interface OrderTrackerProps {
   restaurantName: string;
   onOrderMore: () => void;
   onGoToBill?: () => void;
+  onPayOrder?: (order: OrderDTO) => void;
+  onSplitOrder?: (order: OrderDTO) => void;
 }
 
 export function OrderTracker({
@@ -30,6 +32,8 @@ export function OrderTracker({
   restaurantName,
   onOrderMore,
   onGoToBill,
+  onPayOrder,
+  onSplitOrder,
 }: OrderTrackerProps) {
   const queryClient = useQueryClient();
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
@@ -188,23 +192,45 @@ export function OrderTracker({
                     </span>
                   </div>
 
-                  <span
-                    className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-                      isDelivered
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
-                    }`}
-                  >
-                    {order.status === 'RECEIVED'
-                      ? 'Recibido'
-                      : order.status === 'IN_PREPARATION'
-                        ? 'En Cocina'
-                        : order.status === 'READY'
-                          ? '¡Listo para servir!'
-                          : order.status === 'DELIVERED'
-                            ? 'Entregado'
-                            : order.status}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                        order.paymentStatus === 'PAID'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : order.customerNotes?.includes('Pago pendiente en caja')
+                          ? 'bg-amber-100 text-amber-800'
+                          : order.paymentStatus === 'PARTIALLY_PAID'
+                          ? 'bg-indigo-100 text-indigo-800'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}
+                    >
+                      {order.paymentStatus === 'PAID'
+                        ? 'Pagado'
+                        : order.customerNotes?.includes('Pago pendiente en caja')
+                        ? 'En caja'
+                        : order.paymentStatus === 'PARTIALLY_PAID'
+                        ? 'Parcial'
+                        : 'Por Pagar'}
+                    </span>
+
+                    <span
+                      className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                        isDelivered
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200 animate-pulse'
+                      }`}
+                    >
+                      {order.status === 'RECEIVED'
+                        ? 'Recibido'
+                        : order.status === 'IN_PREPARATION'
+                          ? 'En Cocina'
+                          : order.status === 'READY'
+                            ? '¡Listo para servir!'
+                            : order.status === 'DELIVERED'
+                              ? 'Entregado'
+                              : order.status}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Progress Stepper */}
@@ -296,6 +322,30 @@ export function OrderTracker({
                   <div className="flex items-center gap-1.5 text-xs text-stone-500 pt-1">
                     <User className="w-3.5 h-3.5 text-stone-400" />
                     <span>Atendido por: {order.waiter.fullName}</span>
+                  </div>
+                )}
+
+                {/* Payment Action Buttons */}
+                {order.paymentStatus !== 'PAID' && (
+                  <div className="pt-2 flex items-center gap-2">
+                    {onPayOrder && (
+                      <button
+                        type="button"
+                        onClick={() => onPayOrder(order)}
+                        className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-sm shadow-emerald-600/20 active:scale-95 transition-all text-center"
+                      >
+                        Pagar Pedido
+                      </button>
+                    )}
+                    {onSplitOrder && (
+                      <button
+                        type="button"
+                        onClick={() => onSplitOrder(order)}
+                        className="flex-1 py-2.5 px-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-xs active:scale-95 transition-all text-center"
+                      >
+                        Dividir Cuenta
+                      </button>
+                    )}
                   </div>
                 )}
               </article>
