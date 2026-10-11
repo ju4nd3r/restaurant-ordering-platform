@@ -21,7 +21,7 @@ ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholde
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 WORKDIR /app/apps/api
-RUN npx prisma generate --schema=prisma/schema.prisma
+RUN /app/node_modules/.bin/prisma generate --schema=prisma/schema.prisma
 WORKDIR /app
 RUN pnpm --filter @restaurant/types build
 RUN pnpm --filter @restaurant/validation build
