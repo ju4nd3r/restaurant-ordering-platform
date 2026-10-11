@@ -14,6 +14,7 @@ import {
   PlusCircle,
   Receipt,
   User,
+  FileText,
 } from 'lucide-react';
 
 interface OrderTrackerProps {
@@ -24,6 +25,7 @@ interface OrderTrackerProps {
   onGoToBill?: () => void;
   onPayOrder?: (order: OrderDTO) => void;
   onSplitOrder?: (order: OrderDTO) => void;
+  onViewInvoice?: (order: OrderDTO) => void;
 }
 
 export function OrderTracker({
@@ -34,6 +36,7 @@ export function OrderTracker({
   onGoToBill,
   onPayOrder,
   onSplitOrder,
+  onViewInvoice,
 }: OrderTrackerProps) {
   const queryClient = useQueryClient();
   const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
@@ -346,6 +349,21 @@ export function OrderTracker({
                         Dividir Cuenta
                       </button>
                     )}
+                  </div>
+                )}
+
+                {/* Invoice Action Button */}
+                {onViewInvoice && (
+                  <div className="pt-2 border-t border-stone-100 flex items-center justify-between">
+                    <span className="text-[11px] text-stone-500">Comprobante fiscal DIAN:</span>
+                    <button
+                      type="button"
+                      onClick={() => onViewInvoice(order)}
+                      className="py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 active:scale-95 transition-all"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Factura Electrónica</span>
+                    </button>
                   </div>
                 )}
               </article>

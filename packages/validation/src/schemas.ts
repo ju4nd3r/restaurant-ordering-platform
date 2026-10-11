@@ -228,6 +228,18 @@ export const PayBillSplitSchema = z.object({
   customerBillingData: CustomerBillingDataSchema.optional(),
 });
 
+export const RequestElectronicInvoiceSchema = z.object({
+  orderId: z.string().uuid('ID de orden inválido'),
+  transactionId: z.string().uuid('ID de transacción inválido').optional(),
+  billingData: CustomerBillingDataSchema.refine(
+    (data) => data.isFinalConsumer || data.habeasDataAccepted,
+    {
+      message: 'Debe aceptar la política de tratamiento de datos personales (Habeas Data)',
+      path: ['habeasDataAccepted'],
+    },
+  ),
+});
+
 export type CreateCategoryInput = z.infer<typeof CreateCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof UpdateCategorySchema>;
 export type CreateMenuItemInput = z.infer<typeof CreateMenuItemSchema>;
@@ -246,5 +258,7 @@ export type CreateOrderPaymentInput = z.infer<typeof CreateOrderPaymentSchema>;
 export type InitBillSplitInput = z.infer<typeof InitBillSplitSchema>;
 export type LockItemInput = z.infer<typeof LockItemSchema>;
 export type PayBillSplitInput = z.infer<typeof PayBillSplitSchema>;
+export type RequestElectronicInvoiceInput = z.infer<typeof RequestElectronicInvoiceSchema>;
+
 
 

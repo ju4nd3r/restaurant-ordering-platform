@@ -22,7 +22,9 @@ import { OrderTracker } from '../../../components/orders/order-tracker';
 import { PaymentSheet } from '../../../components/payments/payment-sheet';
 import { BillSplitSheet } from '../../../components/payments/bill-split-sheet';
 import { PaymentCallbackModal } from '../../../components/payments/payment-callback-modal';
-import { OrderDTO } from '../../../lib/api';
+import { InvoiceRequestModal } from '../../../components/invoices/invoice-request-modal';
+import { InvoiceViewSheet } from '../../../components/invoices/invoice-view-sheet';
+import { OrderDTO, ElectronicInvoiceDTO, fetchOrderInvoice } from '../../../lib/api';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -59,6 +61,27 @@ export default function TableMenuPage({ params }: PageProps) {
     orderId?: string | null;
     reference?: string | null;
   }>({ isOpen: false });
+
+  // Electronic Invoice state
+  const [invoiceOrder, setInvoiceOrder] = useState<OrderDTO | null>(null);
+  const [activeInvoice, setActiveInvoice] = useState<ElectronicInvoiceDTO | null>(null);
+  const [isInvoiceRequestOpen, setIsInvoiceRequestOpen] = useState(false);
+  const [isInvoiceViewOpen, setIsInvoiceViewOpen] = useState(false);
+
+  const handleViewInvoice = async (order: OrderDTO) => {
+    setInvoiceOrder(order);
+    try {
+      const existing = await fetchOrderInvoice(order.id);
+      if (existing) {
+        setActiveInvoice(existing);
+        setIsInvoiceViewOpen(true);
+      } else {
+        setIsInvoiceRequestOpen(true);
+      }
+    } catch {
+      setIsInvoiceRequestOpen(true);
+    }
+  };
 
   const searchParams = useSearchParams();
 
@@ -266,6 +289,7 @@ export default function TableMenuPage({ params }: PageProps) {
             setSplitOrder(order);
             setIsSplitOpen(true);
           }}
+          onViewInvoice={handleViewInvoice}
         />
       ) : (
         <>
@@ -400,6 +424,24 @@ export default function TableMenuPage({ params }: PageProps) {
           }}
         />
       )}
+
+      {/* 11. Electronic Invoice Request Modal */}
+      <InvoiceRequestModal
+        order={invoiceOrder}
+        isOpen={isInvoiceRequestOpen}
+        onClose={() => setIsInvoiceRequestOpen(false)}
+        onInvoiceCreated={(inv) => {
+          setActiveInvoice(inv);
+          setIsInvoiceViewOpen(true);
+        }}
+      />
+
+      {/* 12. Electronic Invoice View Sheet */}
+      <InvoiceViewSheet
+        invoice={activeInvoice}
+        isOpen={isInvoiceViewOpen}
+        onClose={() => setIsInvoiceViewOpen(false)}
+      />
     </div>
   );
 }

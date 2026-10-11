@@ -46,7 +46,11 @@ export class UploadsController {
             ? 'image/jpeg'
             : ext === '.svg'
               ? 'image/svg+xml'
-              : 'application/octet-stream';
+              : ext === '.pdf'
+                ? 'application/pdf'
+                : ext === '.xml'
+                  ? 'application/xml'
+                  : 'application/octet-stream';
 
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');

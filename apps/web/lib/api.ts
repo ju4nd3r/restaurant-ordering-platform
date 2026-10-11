@@ -478,3 +478,76 @@ export async function verifyPayment(transactionId: string): Promise<PaymentRespo
   return res.json();
 }
 
+// ==============================================================================
+// ELECTRONIC INVOICING API (DIAN)
+// ==============================================================================
+
+export interface ElectronicInvoiceDTO {
+  id: string;
+  invoiceNumber: string;
+  cufe: string;
+  qrCodeUrl?: string | null;
+  pdfUrl?: string | null;
+  xmlUrl?: string | null;
+  customerDocType: string;
+  customerDocNumber: string;
+  customerLegalName: string;
+  customerEmail?: string | null;
+  customerPhone?: string | null;
+  customerAddress?: string | null;
+  subtotalCop: number;
+  taxCop: number;
+  tipCop: number;
+  totalCop: number;
+  status: 'PENDING' | 'ISSUED' | 'REJECTED' | 'ERROR';
+  issuedAt: string;
+}
+
+export async function requestElectronicInvoice(payload: {
+  orderId: string;
+  transactionId?: string;
+  billingData: {
+    isFinalConsumer: boolean;
+    docType?: string;
+    docNumber?: string;
+    fullNameOrLegalName?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    habeasDataAccepted?: boolean;
+  };
+}): Promise<ElectronicInvoiceDTO> {
+  const res = await fetch(`${API_URL}/api/invoices/request`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Error al solicitar factura electrónica');
+  }
+
+  return res.json();
+}
+
+export async function fetchOrderInvoice(orderId: string): Promise<ElectronicInvoiceDTO | null> {
+  const res = await fetch(`${API_URL}/api/invoices/by-order/${encodeURIComponent(orderId)}`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  return res.json();
+}
+
+
