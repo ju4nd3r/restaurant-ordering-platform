@@ -505,4 +505,107 @@ export class OrdersService {
 
     return updated;
   }
+
+  // ============================================================================
+  // ADMIN: ORDER HISTORY & DAILY SALES REPORTING
+  // ============================================================================
+
+  async getOrdersAdmin(
+    restaurantId: string,
+    filters?: {
+      status?: OrderStatus;
+      tableId?: string;
+      startDate?: string;
+      endDate?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) {
+    const page = Math.max(1, filters?.page || 1);
+    const limit = Math.min(100, Math.max(1, filters?.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: any = { restaurantId };
+    if (filters?.status) where.status = filters.status;
+    if (filters?.tableId) where.tableId = filters.tableId;
+    if (filters?.startDate || filters?.endDate) {
+      where.createdAt = {};
+      if (filters.startDate) where.createdAt.gte = new Date(filters.startDate);
+      if (filters.endDate) where.createdAt.lte = new Date(filters.endDate);
+    }
+
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          table: { select: { number: true, label: true, zone: true } },
+          waiter: { select: { id: true, fullName: true } },
+          items: {
+            include: {
+              menuItem: { select: { name: true } },
+              options: true,
+              modifiers: true,
+            },
+          },
+          transactions: true,
+        },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      orders,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getDailySalesSummary(restaurantId: string, dateStr?: string) {
+    const targetDate = dateStr ? new Date(dateStr) : new Date();
+    const dayStart = new Date(targetDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(targetDate);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const orders = await this.prisma.order.findMany({
+      where: {
+        restaurantId,
+        createdAt: { gte: dayStart, lte: dayEnd },
+        status: { not: OrderStatus.CANCELLED },
+      },
+      include: {
+        transactions: {
+          where: { status: 'APPROVED' },
+        },
+      },
+    });
+
+    let totalSubtotalCop = 0;
+    let totalTaxCop = 0;
+    let totalTipCop = 0;
+    let totalRevenueCop = 0;
+
+    for (const ord of orders) {
+      totalSubtotalCop += ord.subtotalCop;
+      totalTaxCop += ord.taxCop;
+      totalTipCop += ord.tipCop;
+      totalRevenueCop += ord.totalCop;
+    }
+
+    return {
+      date: dayStart.toISOString().split('T')[0],
+      totalOrders: orders.length,
+      totalSubtotalCop,
+      totalTaxCop,
+      totalTipCop,
+      totalRevenueCop,
+    };
+  }
 }

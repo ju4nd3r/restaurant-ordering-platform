@@ -750,4 +750,175 @@ export async function fetchWaiterSummary(): Promise<WaiterSummaryDTO> {
   return res.json();
 }
 
+// ==============================================================================
+// ADMIN PANEL API (MENU, CATEGORIES, TABLES, QR, ORDERS HISTORY, DAILY METRICS)
+// ==============================================================================
+
+export async function fetchAdminCategories(): Promise<any[]> {
+  const res = await fetch(`${API_URL}/api/menu/admin/categories`, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error('Error al cargar categorías');
+  return res.json();
+}
+
+export async function createAdminCategory(data: { name: string; sortOrder?: number }): Promise<any> {
+  const res = await fetch(`${API_URL}/api/menu/admin/categories`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Error al crear categoría');
+  }
+  return res.json();
+}
+
+export async function deleteAdminCategory(id: string): Promise<any> {
+  const res = await fetch(`${API_URL}/api/menu/admin/categories/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Error al eliminar categoría');
+  }
+  return res.json();
+}
+
+export async function createAdminMenuItem(data: any): Promise<any> {
+  const res = await fetch(`${API_URL}/api/menu/admin/items`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Error al crear plato');
+  }
+  return res.json();
+}
+
+export async function toggleMenuItemAvailability(id: string, isAvailable: boolean): Promise<any> {
+  const res = await fetch(`${API_URL}/api/menu/admin/items/${encodeURIComponent(id)}/availability`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ isAvailable }),
+  });
+  if (!res.ok) throw new Error('Error al actualizar disponibilidad');
+  return res.json();
+}
+
+export async function deleteAdminMenuItem(id: string): Promise<any> {
+  const res = await fetch(`${API_URL}/api/menu/admin/items/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Error al eliminar plato');
+  return res.json();
+}
+
+export async function uploadMenuItemImage(itemId: string, file: File): Promise<any> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_URL}/api/menu/admin/items/${encodeURIComponent(itemId)}/images`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Error al subir imagen');
+  }
+  return res.json();
+}
+
+export async function deleteMenuItemImage(imageId: string): Promise<any> {
+  const res = await fetch(`${API_URL}/api/menu/admin/images/${encodeURIComponent(imageId)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error('Error al eliminar imagen');
+  return res.json();
+}
+
+export async function fetchAdminTables(): Promise<any[]> {
+  const res = await fetch(`${API_URL}/api/tables`, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error('Error al cargar mesas');
+  return res.json();
+}
+
+export async function createAdminTable(data: { number: number; label: string; zone?: string }): Promise<any> {
+  const res = await fetch(`${API_URL}/api/tables`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Error al crear mesa');
+  }
+  return res.json();
+}
+
+export async function fetchTableQr(tableId: string): Promise<any> {
+  const res = await fetch(`${API_URL}/api/tables/${encodeURIComponent(tableId)}/qr?format=json`, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error('Error al generar código QR');
+  return res.json();
+}
+
+export async function fetchAdminOrderHistory(params?: {
+  status?: string;
+  tableId?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}): Promise<{ orders: any[]; pagination: any }> {
+  const query = new URLSearchParams();
+  if (params?.status) query.set('status', params.status);
+  if (params?.tableId) query.set('tableId', params.tableId);
+  if (params?.startDate) query.set('startDate', params.startDate);
+  if (params?.endDate) query.set('endDate', params.endDate);
+  if (params?.page) query.set('page', params.page.toString());
+  if (params?.limit) query.set('limit', params.limit.toString());
+
+  const res = await fetch(`${API_URL}/api/orders/admin/history?${query.toString()}`, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error('Error al cargar historial de pedidos');
+  return res.json();
+}
+
+export async function fetchAdminDailySales(dateStr?: string): Promise<{
+  date: string;
+  totalOrders: number;
+  totalSubtotalCop: number;
+  totalTaxCop: number;
+  totalTipCop: number;
+  totalRevenueCop: number;
+}> {
+  const query = dateStr ? `?date=${encodeURIComponent(dateStr)}` : '';
+  const res = await fetch(`${API_URL}/api/orders/admin/daily-sales${query}`, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) throw new Error('Error al consultar ventas del día');
+  return res.json();
+}
+
 

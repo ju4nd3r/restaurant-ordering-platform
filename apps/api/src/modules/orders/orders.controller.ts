@@ -116,4 +116,41 @@ export class OrdersController {
   ) {
     return this.ordersService.updateOrderStatus(id, dto.status, user?.id);
   }
+
+  // ============================================================================
+  // ADMIN: HISTORY & METRICS
+  // ============================================================================
+
+  @Get('admin/history')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Consultar historial de pedidos con filtros (Admin)' })
+  async getOrdersAdmin(
+    @CurrentUser() user: { restaurantId: string },
+    @Req() req: Request,
+  ) {
+    const query = req.query as any;
+    return this.ordersService.getOrdersAdmin(user.restaurantId, {
+      status: query.status,
+      tableId: query.tableId,
+      startDate: query.startDate,
+      endDate: query.endDate,
+      page: query.page ? parseInt(query.page) : 1,
+      limit: query.limit ? parseInt(query.limit) : 20,
+    });
+  }
+
+  @Get('admin/daily-sales')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Consultar resumen y métricas de ventas del día (Admin)' })
+  async getDailySales(
+    @CurrentUser() user: { restaurantId: string },
+    @Req() req: Request,
+  ) {
+    const dateStr = (req.query as any)?.date;
+    return this.ordersService.getDailySalesSummary(user.restaurantId, dateStr);
+  }
 }
