@@ -550,4 +550,204 @@ export async function fetchOrderInvoice(orderId: string): Promise<ElectronicInvo
   return res.json();
 }
 
+// ==============================================================================
+// STAFF OPERATIONAL API (KDS, WAITER, CASHIER, SHIFTS)
+// ==============================================================================
+
+export interface StaffUserDTO {
+  id: string;
+  email: string;
+  fullName: string;
+  roles: ('ADMIN' | 'CASHIER' | 'KITCHEN' | 'WAITER')[];
+  restaurantId: string;
+}
+
+export interface ShiftInfoDTO {
+  activeShift: any;
+  isUserCheckedIn: boolean;
+  userCheckInTime: string | null;
+}
+
+export interface WaiterSummaryDTO {
+  waiterId: string;
+  assignedTablesCount: number;
+  assignedTables: any[];
+  totalTipsCop: number;
+  tipAllocations: any[];
+}
+
+export async function staffLogin(email: string, password: string): Promise<StaffUserDTO> {
+  const res = await fetch(`${API_URL}/api/auth/login`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Credenciales inválidas');
+  }
+
+  const data = await res.json();
+  return data.user;
+}
+
+export async function fetchStaffMe(): Promise<StaffUserDTO | null> {
+  const res = await fetch(`${API_URL}/api/auth/me`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function staffLogout(): Promise<void> {
+  await fetch(`${API_URL}/api/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+}
+
+export async function fetchActiveKitchenOrders(): Promise<OrderDTO[]> {
+  const res = await fetch(`${API_URL}/api/orders/kitchen/active`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error('Error al cargar pedidos activos de cocina');
+  }
+
+  return res.json();
+}
+
+export async function updateOrderStatus(
+  orderId: string,
+  status: 'RECEIVED' | 'IN_PREPARATION' | 'READY' | 'DELIVERED' | 'CANCELLED',
+): Promise<OrderDTO> {
+  const res = await fetch(`${API_URL}/api/orders/${encodeURIComponent(orderId)}/status`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ status }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Error al cambiar estado del pedido');
+  }
+
+  return res.json();
+}
+
+export async function fetchReadyOrders(): Promise<OrderDTO[]> {
+  const res = await fetch(`${API_URL}/api/orders/waiter/ready`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error('Error al consultar pedidos listos');
+  }
+
+  return res.json();
+}
+
+export async function fetchPendingCashOrders(): Promise<any[]> {
+  const res = await fetch(`${API_URL}/api/orders/cashier/pending-cash`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error('Error al consultar pagos en caja');
+  }
+
+  return res.json();
+}
+
+export async function fetchCurrentShift(): Promise<ShiftInfoDTO> {
+  const res = await fetch(`${API_URL}/api/shifts/current`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error('Error al consultar turno');
+  }
+
+  return res.json();
+}
+
+export async function startStaffShift(notes?: string): Promise<ShiftInfoDTO> {
+  const res = await fetch(`${API_URL}/api/shifts/start`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ notes }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Error al iniciar turno');
+  }
+
+  return res.json();
+}
+
+export async function endStaffShift(notes?: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_URL}/api/shifts/end`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ notes }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Error al finalizar turno');
+  }
+
+  return res.json();
+}
+
+export async function fetchWaiterSummary(): Promise<WaiterSummaryDTO> {
+  const res = await fetch(`${API_URL}/api/shifts/waiter/summary`, {
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error('Error al consultar resumen de mesero');
+  }
+
+  return res.json();
+}
+
 

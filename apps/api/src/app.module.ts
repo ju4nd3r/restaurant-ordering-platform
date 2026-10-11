@@ -10,6 +10,7 @@ import { TablesModule } from './modules/tables/tables.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { InvoicesModule } from './modules/invoices/invoices.module';
+import { ShiftsModule } from './modules/shifts/shifts.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { InvoicesModule } from './modules/invoices/invoices.module';
     OrdersModule,
     PaymentsModule,
     InvoicesModule,
+    ShiftsModule,
   ],
 })
 export class AppModule {}

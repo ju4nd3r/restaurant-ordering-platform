@@ -330,6 +330,25 @@ export class OrdersService {
         status: {
           in: [OrderStatus.RECEIVED, OrderStatus.IN_PREPARATION, OrderStatus.READY],
         },
+        OR: [
+          { paymentStatus: 'PAID' },
+          { paymentStatus: 'PARTIALLY_PAID' },
+          {
+            // Or orders with pending cash payment
+            transactions: {
+              some: {
+                provider: 'CASH',
+                status: 'PENDING',
+              },
+            },
+          },
+          // Or orders placed before payment is required
+          {
+            transactions: {
+              none: {},
+            },
+          },
+        ],
       },
       orderBy: { createdAt: 'asc' }, // FIFO: First In, First Out
       include: {
@@ -344,6 +363,75 @@ export class OrdersService {
             menuItem: { select: { name: true, prepTimeMinutes: true } },
             options: true,
             modifiers: true,
+          },
+        },
+        transactions: {
+          select: {
+            id: true,
+            provider: true,
+            status: true,
+            amountCop: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getReadyOrdersForWaiter(restaurantId: string, waiterId?: string) {
+    return this.prisma.order.findMany({
+      where: {
+        restaurantId,
+        status: OrderStatus.READY,
+        ...(waiterId ? { waiterId } : {}),
+      },
+      orderBy: { updatedAt: 'asc' },
+      include: {
+        table: {
+          select: { number: true, label: true, zone: true },
+        },
+        waiter: {
+          select: { id: true, fullName: true },
+        },
+        items: {
+          include: {
+            menuItem: { select: { name: true, prepTimeMinutes: true } },
+            options: true,
+            modifiers: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getCashPendingOrdersForCashier(restaurantId: string) {
+    return this.prisma.order.findMany({
+      where: {
+        restaurantId,
+        status: { notIn: [OrderStatus.CANCELLED, OrderStatus.DELIVERED] },
+        transactions: {
+          some: {
+            provider: 'CASH',
+            status: 'PENDING',
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        table: {
+          select: { number: true, label: true, zone: true },
+        },
+        waiter: {
+          select: { id: true, fullName: true },
+        },
+        items: {
+          include: {
+            menuItem: { select: { name: true } },
+          },
+        },
+        transactions: {
+          where: {
+            provider: 'CASH',
+            status: 'PENDING',
           },
         },
       },

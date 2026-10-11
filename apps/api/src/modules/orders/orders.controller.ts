@@ -75,6 +75,32 @@ export class OrdersController {
     return this.ordersService.getActiveOrdersForKitchen(user.restaurantId);
   }
 
+  @Get('waiter/ready')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.WAITER, Role.ADMIN)
+  @ApiOperation({
+    summary: 'Listar pedidos en estado LISTO asignados al mesero o generales del restaurante',
+  })
+  async getReadyOrders(
+    @CurrentUser() user: { id: string; restaurantId: string },
+  ) {
+    return this.ordersService.getReadyOrdersForWaiter(user.restaurantId, user.id);
+  }
+
+  @Get('cashier/pending-cash')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.CASHIER, Role.ADMIN)
+  @ApiOperation({
+    summary: 'Listar pedidos con pagos pendientes en efectivo para confirmación en caja',
+  })
+  async getPendingCashOrders(
+    @CurrentUser() user: { restaurantId: string },
+  ) {
+    return this.ordersService.getCashPendingOrdersForCashier(user.restaurantId);
+  }
+
   @Patch(':id/status')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -240,6 +240,14 @@ export const RequestElectronicInvoiceSchema = z.object({
   ),
 });
 
+export const StartShiftSchema = z.object({
+  notes: z.string().trim().max(250).optional(),
+});
+
+export const EndShiftSchema = z.object({
+  notes: z.string().trim().max(250).optional(),
+});
+
 export type CreateCategoryInput = z.infer<typeof CreateCategorySchema>;
 export type UpdateCategoryInput = z.infer<typeof UpdateCategorySchema>;
 export type CreateMenuItemInput = z.infer<typeof CreateMenuItemSchema>;
@@ -259,6 +267,8 @@ export type InitBillSplitInput = z.infer<typeof InitBillSplitSchema>;
 export type LockItemInput = z.infer<typeof LockItemSchema>;
 export type PayBillSplitInput = z.infer<typeof PayBillSplitSchema>;
 export type RequestElectronicInvoiceInput = z.infer<typeof RequestElectronicInvoiceSchema>;
+export type StartShiftInput = z.infer<typeof StartShiftSchema>;
+export type EndShiftInput = z.infer<typeof EndShiftSchema>;
 
 
 

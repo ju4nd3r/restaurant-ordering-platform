@@ -8,6 +8,8 @@ export function formatCOP(amount: number): string {
   }).format(amount);
 }
 
+export const formatMoneyCop = formatCOP;
+
 export const ALLERGEN_LABELS: Record<string, { label: string; icon: string }> = {
   GLUTEN: { label: 'Gluten', icon: '🌾' },
   DAIRY: { label: 'Lácteos', icon: '🥛' },
